@@ -22,13 +22,14 @@
   });
 
   function extractStylesFromPage() {
-    const sampledElements = collectSampledElements(280);
+    const sampledElements = collectSampledElements(400);
     const typography = [];
     const colors = [];
     const spacing = [];
     const radius = [];
     const shadows = [];
     const motion = [];
+    const layouts = [];
 
     for (const el of sampledElements) {
       const style = window.getComputedStyle(el);
@@ -66,6 +67,8 @@
         animationDuration: style.animationDuration,
         animationTimingFunction: style.animationTimingFunction
       });
+
+      layouts.push(snapshotLayout(el, style));
     }
 
     return {
@@ -82,6 +85,19 @@
       radius,
       shadows,
       motion,
+      layouts,
+      cssVariables: collectCssVariables(180),
+      breakpoints: collectBreakpoints(80),
+      viewport: { width: window.innerWidth, height: window.innerHeight, devicePixelRatio: window.devicePixelRatio || 1 },
+      evidence: {
+        defaultComputedStyleObserved: true,
+        layoutGeometryObserved: true,
+        cssVariablesObserved: true,
+        mediaQueriesObservedWhenReadable: true,
+        hoverStateObserved: false,
+        focusStateObserved: false,
+        activeStateObserved: false
+      },
       components: collectComponentCounts(),
       siteSignals: collectSiteSignals()
     };
@@ -102,7 +118,8 @@
       "[role='button']",
       "[class*='card']",
       "[class*='btn']",
-      "[tabindex]"
+      "[tabindex]",
+      "div[class],span[class]"
     ];
 
     const seen = new Set();
@@ -145,6 +162,101 @@
       return false;
     }
     return true;
+  }
+
+
+  function snapshotLayout(el, style) {
+    const rect = el.getBoundingClientRect();
+    return {
+      element: {
+        tag: el.tagName.toLowerCase(),
+        id: el.id || "",
+        classes: Array.from(el.classList || []).slice(0, 5),
+        role: el.getAttribute("role") || ""
+      },
+      rect: {
+        x: round2(rect.x),
+        y: round2(rect.y),
+        width: round2(rect.width),
+        height: round2(rect.height)
+      },
+      display: style.display,
+      position: style.position,
+      flexDirection: style.flexDirection,
+      justifyContent: style.justifyContent,
+      alignItems: style.alignItems,
+      gridTemplateColumns: style.gridTemplateColumns,
+      gap: style.gap,
+      width: style.width,
+      maxWidth: style.maxWidth
+    };
+  }
+
+  function collectCssVariables(limit) {
+    const output = [];
+    const seen = new Set();
+    const add = (name, value) => {
+      if (!name || !name.startsWith("--") || seen.has(name) || output.length >= limit) return;
+      const normalized = normalizeWhitespace(value);
+      if (!normalized) return;
+      seen.add(name);
+      output.push({ name, value: normalized });
+    };
+
+    for (const target of [document.documentElement, document.body].filter(Boolean)) {
+      const style = window.getComputedStyle(target);
+      for (let i = 0; i < style.length && output.length < limit; i += 1) {
+        const name = style[i];
+        if (name && name.startsWith("--")) add(name, style.getPropertyValue(name));
+      }
+    }
+
+    const visitRules = (rules) => {
+      if (!rules) return;
+      for (const rule of Array.from(rules)) {
+        if (output.length >= limit) return;
+        if (rule?.style) {
+          for (let i = 0; i < rule.style.length && output.length < limit; i += 1) {
+            const name = rule.style[i];
+            if (name && name.startsWith("--")) add(name, rule.style.getPropertyValue(name));
+          }
+        }
+        if (rule?.cssRules) {
+          try { visitRules(rule.cssRules); } catch (_error) {}
+        }
+      }
+    };
+
+    for (const sheet of Array.from(document.styleSheets || [])) {
+      if (output.length >= limit) break;
+      try { visitRules(sheet.cssRules); } catch (_error) {}
+    }
+
+    return output;
+  }
+
+  function collectBreakpoints(limit) {
+    const values = new Set();
+    let unreadableStylesheets = 0;
+    const visitRules = (rules) => {
+      if (!rules) return;
+      for (const rule of Array.from(rules)) {
+        if (values.size >= limit) return;
+        if (rule && rule.media && rule.media.mediaText) values.add(normalizeWhitespace(rule.media.mediaText));
+        if (rule && rule.cssRules) {
+          try { visitRules(rule.cssRules); } catch (_error) {}
+        }
+      }
+    };
+    for (const sheet of Array.from(document.styleSheets || [])) {
+      if (values.size >= limit) break;
+      try { visitRules(sheet.cssRules); } catch (_error) { unreadableStylesheets += 1; }
+    }
+    return { queries: Array.from(values), unreadableStylesheets };
+  }
+
+  function round2(value) {
+    return Number.isFinite(value) ? Math.round(value * 100) / 100 : 0;
   }
 
   function collectComponentCounts() {

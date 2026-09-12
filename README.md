@@ -1,5 +1,26 @@
 # TypeUI DESIGN.md Extractor (Chrome Extension)
 
+
+## Louis fork: evidence-first extraction (v0.5.0)
+
+This fork adds an evidence-first mode intended for AI app builders and coding agents:
+
+- captures computed styles plus layout geometry, CSS custom properties, viewport data, and readable media queries;
+- exports `DESIGN.raw.json` with direct observations separated from derived summaries;
+- labels generated guidance as **OBSERVED FROM SOURCE**, **INFERRED — VERIFY**, or **GENERIC GUIDANCE — NOT OBSERVED** so agents do not confuse boilerplate with source truth;
+- rejects unresolved `rem`/`em`/CSS-wide keywords instead of misreporting them as pixel values;
+- preserves token usage counts;
+- adds real-Chromium browser acceptance coverage for typography, motion, layout, CSS variables, breakpoints, provenance, and output validation.
+
+Recommended agent flow:
+
+```text
+reference URL -> browser extraction -> DESIGN.raw.json + DESIGN.md/SKILL.md
+-> agent implementation -> same-viewport screenshot diff -> targeted repair
+```
+
+`DESIGN.raw.json` is the source-evidence artifact. `DESIGN.md` and `SKILL.md` are agent-facing summaries and must preserve the evidence labels above.
+
 This Chrome extension extract styles and information from any given site and generates a `DESIGN.md` or `SKILL.md` file that you can use with tools such as Google Stitch, Claude Code, Codex, and others to build websites with a given design system blueprint. The file is based on the open-source [TypeUI DESIGN.md](https://www.typeui.sh/design-md) format.
 
 <img width="1200" height="630" alt="designmdchrome" src="https://github.com/user-attachments/assets/64efbebb-1c68-4ca1-8792-ca167d5e12d6" />
