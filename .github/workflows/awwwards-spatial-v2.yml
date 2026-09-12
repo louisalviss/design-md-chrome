@@ -1,0 +1,46 @@
+name: Awwwards spatial v2 canary
+
+on:
+  push:
+    branches:
+      - canary/awwwards-spatial-v2
+
+jobs:
+  extract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Extract desktop target
+        run: npm run extract:url -- --url https://stateofaidesign.com/ --out /tmp/ai-design-desktop --width 1440 --height 1000 --timeout-ms 90000 --multi-state
+      - name: Extract mobile target
+        run: npm run extract:url -- --url https://stateofaidesign.com/ --out /tmp/ai-design-mobile --preset android-pixel6 --timeout-ms 90000 --multi-state
+      - name: Validate enriched evidence
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          for (const dir of ['/tmp/ai-design-desktop','/tmp/ai-design-mobile']) {
+            const r = JSON.parse(fs.readFileSync(`${dir}/run.json`, 'utf8'));
+            const spatial = JSON.parse(fs.readFileSync(`${dir}/spatial.json`, 'utf8'));
+            const media = JSON.parse(fs.readFileSync(`${dir}/media-map.json`, 'utf8'));
+            const motion = JSON.parse(fs.readFileSync(`${dir}/motion.json`, 'utf8'));
+            if (!r.ok || r.schema !== 'design-reference-run-v1') throw new Error(`bad run ${dir}`);
+            if (!r.capabilities?.spatial_graph || !r.capabilities?.media_map || !r.capabilities?.multi_state) throw new Error(`missing capabilities ${dir}`);
+            if (r.multi_state?.state_count !== 8 || motion.stateCount !== 8 || !motion.captured) throw new Error(`bad multistate ${dir}`);
+            if (spatial.schema !== 'design-spatial-v1' || !spatial.relations?.length || !spatial.sections?.length) throw new Error(`bad spatial ${dir}`);
+            if (media.schema !== 'design-media-map-v1' || !media.items?.length) throw new Error(`bad media ${dir}`);
+          }
+          NODE
+      - uses: actions/upload-artifact@v4
+        with:
+          name: awwwards-spatial-v2-reference
+          path: |
+            /tmp/ai-design-desktop
+            /tmp/ai-design-mobile
+          retention-days: 7
