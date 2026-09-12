@@ -260,9 +260,25 @@
     });
 
     const relations = [];
-    const relationLimit = 1800;
+    const relationCaps = {
+      "contained-by": 500,
+      overlaps: 500,
+      "align-left": 300,
+      "align-center-x": 300,
+      near: 450
+    };
+    const relationCounts = {};
+    const truncatedTypes = new Set();
     const addRelation = (relation) => {
-      if (relations.length < relationLimit) relations.push(relation);
+      const type = relation?.type || "unknown";
+      const count = relationCounts[type] || 0;
+      const cap = relationCaps[type] || 200;
+      if (count >= cap) {
+        truncatedTypes.add(type);
+        return;
+      }
+      relationCounts[type] = count + 1;
+      relations.push(relation);
     };
 
     for (const el of elements) {
@@ -273,7 +289,7 @@
     }
 
     const pairLayouts = layouts.filter((row) => row?.key && row.documentRect?.width > 0 && row.documentRect?.height > 0);
-    for (let i = 0; i < pairLayouts.length && relations.length < relationLimit; i += 1) {
+    for (let i = 0; i < pairLayouts.length; i += 1) {
       const a = pairLayouts[i];
       const ar = a.documentRect;
       let nearest = null;
@@ -324,8 +340,10 @@
       schema: "design-spatial-v1",
       coordinateSpace: "document-css-px",
       relations,
-      relationLimit,
-      relationsTruncated: relations.length >= relationLimit,
+      relationCaps,
+      relationCounts,
+      relationsTruncated: truncatedTypes.size > 0,
+      truncatedTypes: Array.from(truncatedTypes),
       viewportAnchors,
       sections
     };
