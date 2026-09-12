@@ -17,3 +17,15 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - run: npm run test:all
+      - name: CLI extraction smoke
+        run: |
+          python3 -m http.server 4173 --directory tests/fixtures >/tmp/design-ref-http.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" >/dev/null 2>&1 || true' EXIT
+          sleep 1
+          npm run extract:url -- --url http://127.0.0.1:4173/reference.html --out /tmp/design-reference --no-screenshot
+          test -s /tmp/design-reference/DESIGN.raw.json
+          test -s /tmp/design-reference/DESIGN.md
+          test -s /tmp/design-reference/SKILL.md
+          test -s /tmp/design-reference/run.json
+          node -e 'const fs=require("fs"); const r=JSON.parse(fs.readFileSync("/tmp/design-reference/run.json","utf8")); if(!r.ok || r.schema!=="design-reference-run-v1" || !r.files["DESIGN.raw.json"]?.sha256 || !r.files["DESIGN.md"]?.sha256) process.exit(1)'
