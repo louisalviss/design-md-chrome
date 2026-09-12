@@ -1,0 +1,40 @@
+name: Awwwards AI in Design extraction canary
+
+on:
+  push:
+    branches:
+      - canary/awwwards-ai-design-20260912
+
+jobs:
+  extract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Extract desktop target
+        run: npm run extract:url -- --url https://stateofaidesign.com/ --out /tmp/ai-design-desktop --width 1440 --height 1000 --timeout-ms 90000
+      - name: Extract mobile target
+        run: npm run extract:url -- --url https://stateofaidesign.com/ --out /tmp/ai-design-mobile --preset android-pixel6 --timeout-ms 90000
+      - name: Validate evidence
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          for (const dir of ['/tmp/ai-design-desktop','/tmp/ai-design-mobile']) {
+            const r = JSON.parse(fs.readFileSync(`${dir}/run.json`, 'utf8'));
+            if (!r.ok || r.schema !== 'design-reference-run-v1') throw new Error(`bad run ${dir}`);
+            if (!r.files['DESIGN.raw.json']?.sha256 || !r.files['source.png']?.sha256) throw new Error(`missing proofs ${dir}`);
+          }
+          NODE
+      - uses: actions/upload-artifact@v4
+        with:
+          name: awwwards-ai-design-reference
+          path: |
+            /tmp/ai-design-desktop
+            /tmp/ai-design-mobile
+          retention-days: 7
