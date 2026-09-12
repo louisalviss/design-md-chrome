@@ -23,11 +23,18 @@ jobs:
           server_pid=$!
           trap 'kill "$server_pid" >/dev/null 2>&1 || true' EXIT
           sleep 1
-          npm run extract:url -- --url http://127.0.0.1:4173/reference.html --out /tmp/design-reference --preset android-pixel6
+          npm run extract:url -- --url http://127.0.0.1:4173/reference.html --out /tmp/design-reference --preset android-pixel6 --multi-state
           test -s /tmp/design-reference/DESIGN.raw.json
           test -s /tmp/design-reference/DESIGN.md
           test -s /tmp/design-reference/SKILL.md
+          test -s /tmp/design-reference/spatial.json
+          test -s /tmp/design-reference/media-map.json
+          test -s /tmp/design-reference/motion.json
+          test -s /tmp/design-reference/states/index.json
+          test -s /tmp/design-reference/states/t000.json
+          test -s /tmp/design-reference/states/t4000.json
+          test -s /tmp/design-reference/states/scroll50.json
           test -s /tmp/design-reference/source.png
           test -s /tmp/design-reference/source-full.png
           test -s /tmp/design-reference/run.json
-          node -e 'const fs=require("fs"),c=require("crypto"); const r=JSON.parse(fs.readFileSync("/tmp/design-reference/run.json","utf8")); const h=p=>c.createHash("sha256").update(fs.readFileSync(p)).digest("hex"); if(!r.ok || r.schema!=="design-reference-run-v1" || r.preset!=="android-pixel6" || r.viewport?.width!==412 || r.viewport?.height!==915 || r.screenshot!=="source.png" || r.screenshot_mode!=="viewport" || !r.files["DESIGN.raw.json"]?.sha256 || r.files["source.png"]?.sha256!==h("/tmp/design-reference/source.png") || r.files["source-full.png"]?.sha256!==h("/tmp/design-reference/source-full.png")) process.exit(1)'
+          node -e 'const fs=require("fs"),c=require("crypto"); const r=JSON.parse(fs.readFileSync("/tmp/design-reference/run.json","utf8")); const h=p=>c.createHash("sha256").update(fs.readFileSync(p)).digest("hex"); const spatial=JSON.parse(fs.readFileSync("/tmp/design-reference/spatial.json","utf8")); const media=JSON.parse(fs.readFileSync("/tmp/design-reference/media-map.json","utf8")); const motion=JSON.parse(fs.readFileSync("/tmp/design-reference/motion.json","utf8")); if(!r.ok || r.schema!=="design-reference-run-v1" || r.preset!=="android-pixel6" || r.viewport?.width!==412 || r.viewport?.height!==915 || r.screenshot!=="source.png" || r.screenshot_mode!=="viewport" || !r.capabilities?.spatial_graph || !r.capabilities?.media_map || !r.capabilities?.multi_state || r.multi_state?.state_count!==8 || spatial.schema!=="design-spatial-v1" || media.schema!=="design-media-map-v1" || !media.items?.some(x=>x.kind==="img") || motion.schema!=="design-motion-v1" || !motion.captured || motion.stateCount!==8 || motion.dynamicElementCount<1 || !r.files["states/index.json"]?.sha256 || r.files["source.png"]?.sha256!==h("/tmp/design-reference/source.png") || r.files["source-full.png"]?.sha256!==h("/tmp/design-reference/source-full.png")) process.exit(1)'
