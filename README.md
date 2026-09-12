@@ -12,6 +12,16 @@ This fork adds an evidence-first mode intended for AI app builders and coding ag
 - preserves token usage counts;
 - adds real-Chromium browser acceptance coverage for typography, motion, layout, CSS variables, breakpoints, provenance, and output validation.
 
+CLI extraction for CI/App Builder:
+
+```bash
+npm ci
+npx playwright install chromium
+npm run extract:url -- --url https://example.com --out design-reference
+```
+
+This writes `DESIGN.raw.json`, `DESIGN.md`, `SKILL.md`, `source.png`, and a hash-bearing `run.json`.
+
 Recommended agent flow:
 
 ```text

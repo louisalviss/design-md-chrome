@@ -6,7 +6,8 @@
   "scripts": {
     "test": "node tests/run-tests.mjs",
     "test:browser": "node tests/browser-e2e.mjs",
-    "test:all": "npm run test && npm run test:browser"
+    "test:all": "npm run test && npm run test:browser",
+    "extract:url": "node scripts/extract-url.mjs"
   },
   "devDependencies": {
     "playwright": "1.55.0"
