@@ -80,6 +80,7 @@ const mockPayload = {
 const normalized = normalizeExtractedStyles(mockPayload);
 
 assert.ok(normalized.typographyScale.length >= 3, "typography scale should be inferred");
+assert.ok(normalized.typographyScale.some((row) => row.usage > 0), "numeric token usage counts should be preserved");
 assert.equal(normalized.mainFontStyle.primaryFamily, "Inter", "main font family should be inferred");
 assert.ok(normalized.colorPalette.length >= 3, "color palette should be inferred");
 assert.ok(normalized.spacingScale.length >= 2, "spacing scale should be inferred");
@@ -114,7 +115,20 @@ assert.ok(skillMd.includes("- Main font style: `font.family.primary=Inter`"), "S
 assert.ok(designMd.includes("- Audience: authenticated users and operators"), "DESIGN.md should infer audience from site signals");
 assert.ok(designMd.includes("- Product surface: dashboard web app"), "DESIGN.md should infer product surface from site signals");
 assert.ok(skillMd.includes("- Product surface: dashboard web app"), "SKILL.md should infer product surface from site signals");
+assert.ok(designMd.includes("OBSERVED FROM SOURCE"), "DESIGN.md should separate observed evidence");
+assert.ok(designMd.includes("GENERIC GUIDANCE — NOT OBSERVED"), "DESIGN.md should label generic guidance");
+assert.ok(skillMd.includes("INFERRED — VERIFY"), "SKILL.md should label inference");
 assert.ok(!designMd.includes("Audience/surface inference confidence"), "DESIGN.md should not include inference confidence text");
 assert.ok(!skillMd.includes("Audience/surface inference confidence"), "SKILL.md should not include inference confidence text");
+
+const invalidUnits = normalizeExtractedStyles({
+  source: { url: "https://example.com", title: "Units" }, sampledAt: new Date().toISOString(), totalElements: 1, sampledElements: 1,
+  typography: [{ fontFamily: "inherit", fontSize: "1rem", lineHeight: "1.5", fontWeight: "400" }],
+  colors: [], spacing: [{ paddingTop: "1rem", paddingRight: "0.5em" }], radius: ["0.5rem"], shadows: [], motion: [], components: []
+});
+assert.equal(invalidUnits.typographyScale.length, 0, "non-px units must not be misreported as px");
+assert.equal(invalidUnits.spacingScale.length, 0, "non-px spacing must not be misreported as px");
+assert.equal(invalidUnits.radiusTokens.length, 0, "non-px radius must not be misreported as px");
+assert.equal(invalidUnits.mainFontStyle.familyStack, "", "CSS-wide font keywords must not become font families");
 
 console.log("All tests passed.");

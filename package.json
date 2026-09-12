@@ -1,0 +1,14 @@
+{
+  "name": "design-md-chrome-louis",
+  "private": true,
+  "version": "0.5.0",
+  "type": "module",
+  "scripts": {
+    "test": "node tests/run-tests.mjs",
+    "test:browser": "node tests/browser-e2e.mjs",
+    "test:all": "npm run test && npm run test:browser"
+  },
+  "devDependencies": {
+    "playwright": "1.55.0"
+  }
+}

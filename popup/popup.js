@@ -3,7 +3,8 @@ const state = {
   filename: "",
   mode: "design",
   busy: false,
-  lastResult: null
+  lastResult: null,
+  rawJson: ""
 };
 
 const QUICK_INSTALL_PROVIDERS = {
@@ -24,6 +25,7 @@ const QUICK_INSTALL_PROVIDERS = {
 const modeButtons = Array.from(document.querySelectorAll("[data-mode]"));
 const refreshBtn = document.getElementById("refreshBtn");
 const downloadBtn = document.getElementById("downloadBtn");
+const evidenceBtn = document.getElementById("evidenceBtn");
 const copyBtn = document.getElementById("copyBtn");
 const quickInstallButtons = Array.from(document.querySelectorAll(".quick-install-btn"));
 const quickInstallResultEl = document.getElementById("quickInstallResult");
@@ -62,6 +64,10 @@ for (const button of quickInstallButtons) {
 
 downloadBtn.addEventListener("click", () => {
   downloadCurrent().catch((error) => setStatus(toErrorText(error), true));
+});
+
+evidenceBtn.addEventListener("click", () => {
+  downloadEvidence().catch((error) => setStatus(toErrorText(error), true));
 });
 
 helpBtn.addEventListener("click", () => {
@@ -132,9 +138,11 @@ async function runExtraction() {
     state.markdown = response.markdown;
     state.filename = response.filename;
     state.lastResult = response;
+    state.rawJson = response.rawJson || "";
 
     previewEl.value = response.markdown;
     downloadBtn.disabled = false;
+    evidenceBtn.disabled = !state.rawJson;
     copyBtn.disabled = false;
 
     renderValidationIssues(response.validation);
@@ -165,6 +173,13 @@ async function downloadCurrent() {
   if (!response || !response.ok) {
     throw new Error(response?.error || "Download failed.");
   }
+  clearStatus();
+}
+
+async function downloadEvidence() {
+  if (!state.rawJson) { setStatus("No raw evidence available yet.", true); return; }
+  const response = await chrome.runtime.sendMessage({ type: "DOWNLOAD_EVIDENCE", rawJson: state.rawJson });
+  if (!response || !response.ok) throw new Error(response?.error || "Evidence download failed.");
   clearStatus();
 }
 

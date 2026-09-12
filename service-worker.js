@@ -2,6 +2,7 @@ import { normalizeExtractedStyles } from "./lib/normalize.mjs";
 import { generateDesignMarkdown } from "./lib/generate-design-md.mjs";
 import { generateSkillMarkdown } from "./lib/generate-skill-md.mjs";
 import { validateMarkdownOutput } from "./lib/validate.mjs";
+import { generateEvidenceJson } from "./lib/generate-evidence-json.mjs";
 
 const EXTRACTION_MESSAGE = "TYPEUI_EXTRACT_STYLES";
 
@@ -29,6 +30,13 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       .catch((error) => sendResponse({ ok: false, error: stringifyError(error) }));
     return true;
   }
+
+  if (message.type === "DOWNLOAD_EVIDENCE") {
+    handleEvidenceDownload(message)
+      .then((downloadId) => sendResponse({ ok: true, downloadId }))
+      .catch((error) => sendResponse({ ok: false, error: stringifyError(error) }));
+    return true;
+  }
 });
 
 async function handleExtraction(message) {
@@ -49,6 +57,7 @@ async function handleExtraction(message) {
 
   const validation = validateMarkdownOutput(mode, markdown);
   const filename = mode === "skill" ? "SKILL.md" : "DESIGN.md";
+  const rawJson = generateEvidenceJson(payload, normalized);
 
   if (message.persistOutputMode !== false) {
     await chrome.storage.local.set({
@@ -60,6 +69,7 @@ async function handleExtraction(message) {
     mode,
     filename,
     markdown,
+    rawJson,
     normalized,
     validation
   };
@@ -78,6 +88,12 @@ async function handleDownload(message) {
     saveAs: true,
     conflictAction: "uniquify"
   });
+}
+
+async function handleEvidenceDownload(message) {
+  if (!message.rawJson) throw new Error("Cannot download empty evidence.");
+  const url = `data:application/json;charset=utf-8,${encodeURIComponent(message.rawJson)}`;
+  return chrome.downloads.download({ url, filename: "DESIGN.raw.json", saveAs: true, conflictAction: "uniquify" });
 }
 
 async function getActiveTab() {
