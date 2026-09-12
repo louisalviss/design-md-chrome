@@ -195,17 +195,43 @@
   function collectCssVariables(limit) {
     const output = [];
     const seen = new Set();
+    const add = (name, value) => {
+      if (!name || !name.startsWith("--") || seen.has(name) || output.length >= limit) return;
+      const normalized = normalizeWhitespace(value);
+      if (!normalized) return;
+      seen.add(name);
+      output.push({ name, value: normalized });
+    };
+
     for (const target of [document.documentElement, document.body].filter(Boolean)) {
       const style = window.getComputedStyle(target);
       for (let i = 0; i < style.length && output.length < limit; i += 1) {
         const name = style[i];
-        if (!name || !name.startsWith("--") || seen.has(name)) continue;
-        const value = normalizeWhitespace(style.getPropertyValue(name));
-        if (!value) continue;
-        seen.add(name);
-        output.push({ name, value });
+        if (name && name.startsWith("--")) add(name, style.getPropertyValue(name));
       }
     }
+
+    const visitRules = (rules) => {
+      if (!rules) return;
+      for (const rule of Array.from(rules)) {
+        if (output.length >= limit) return;
+        if (rule?.style) {
+          for (let i = 0; i < rule.style.length && output.length < limit; i += 1) {
+            const name = rule.style[i];
+            if (name && name.startsWith("--")) add(name, rule.style.getPropertyValue(name));
+          }
+        }
+        if (rule?.cssRules) {
+          try { visitRules(rule.cssRules); } catch (_error) {}
+        }
+      }
+    };
+
+    for (const sheet of Array.from(document.styleSheets || [])) {
+      if (output.length >= limit) break;
+      try { visitRules(sheet.cssRules); } catch (_error) {}
+    }
+
     return output;
   }
 
