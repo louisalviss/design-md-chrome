@@ -1,0 +1,43 @@
+name: LaunchPage A extraction canary
+
+on:
+  push:
+    branches:
+      - canary/launchpage-ab-20260912
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  extract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Extract target A
+        run: |
+          rm -rf /tmp/launchpage-reference
+          npm run extract:url -- \
+            --url https://launchpage.xyz/example.html \
+            --out /tmp/launchpage-reference \
+            --preset android-pixel6 \
+            --timeout-ms 120000
+      - name: Print extraction proof
+        run: |
+          echo '--- run.json ---'
+          cat /tmp/launchpage-reference/run.json
+          echo '--- DESIGN.md ---'
+          cat /tmp/launchpage-reference/DESIGN.md
+      - uses: actions/upload-artifact@v4
+        with:
+          name: launchpage-reference
+          path: /tmp/launchpage-reference
+          if-no-files-found: error
+          retention-days: 3
