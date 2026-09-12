@@ -13,17 +13,25 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, "..");
 
 function parseArgs(argv) {
-  const out = { url: "", outDir: "design-reference", width: 1440, height: 1000, timeoutMs: 45000, screenshot: true };
+  const out = {
+    url: "", outDir: "design-reference", width: 1440, height: 1000, timeoutMs: 45000, screenshot: true,
+    preset: "", widthExplicit: false, heightExplicit: false
+  };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     if (arg === "--url") out.url = argv[++i] || "";
     else if (arg === "--out") out.outDir = argv[++i] || "";
-    else if (arg === "--width") out.width = Number(argv[++i]);
-    else if (arg === "--height") out.height = Number(argv[++i]);
+    else if (arg === "--preset") out.preset = argv[++i] || "";
+    else if (arg === "--width") { out.width = Number(argv[++i]); out.widthExplicit = true; }
+    else if (arg === "--height") { out.height = Number(argv[++i]); out.heightExplicit = true; }
     else if (arg === "--timeout-ms") out.timeoutMs = Number(argv[++i]);
     else if (arg === "--no-screenshot") out.screenshot = false;
     else if (arg === "--help" || arg === "-h") out.help = true;
     else throw new Error(`unknown argument: ${arg}`);
+  }
+  if (out.preset === "android-pixel6") {
+    if (!out.widthExplicit) out.width = 412;
+    if (!out.heightExplicit) out.height = 915;
   }
   return out;
 }
@@ -34,6 +42,7 @@ function validateOptions(options) {
   try { parsed = new URL(options.url); } catch { throw new Error("--url must be a valid URL"); }
   if (!["http:", "https:"].includes(parsed.protocol)) throw new Error("--url must use http or https");
   if (parsed.username || parsed.password) throw new Error("credentials embedded in --url are not allowed");
+  if (options.preset && options.preset !== "android-pixel6") throw new Error("--preset must be android-pixel6 when set");
   if (!Number.isInteger(options.width) || options.width < 320 || options.width > 3840) throw new Error("--width must be an integer in [320,3840]");
   if (!Number.isInteger(options.height) || options.height < 320 || options.height > 2160) throw new Error("--height must be an integer in [320,2160]");
   if (!Number.isInteger(options.timeoutMs) || options.timeoutMs < 5000 || options.timeoutMs > 120000) throw new Error("--timeout-ms must be an integer in [5000,120000]");
@@ -93,6 +102,7 @@ async function extract(options) {
     const summary = {
       ok: true,
       schema: "design-reference-run-v1",
+      preset: options.preset || null,
       requested_url: options.url,
       resolved_url: page.url(),
       viewport: { width: options.width, height: options.height },
@@ -113,7 +123,7 @@ async function extract(options) {
 
 const options = parseArgs(process.argv.slice(2));
 if (options.help) {
-  console.log("Usage: node scripts/extract-url.mjs --url <https://...> [--out design-reference] [--width 1440] [--height 1000] [--timeout-ms 45000] [--no-screenshot]");
+  console.log("Usage: node scripts/extract-url.mjs --url <https://...> [--out design-reference] [--preset android-pixel6] [--width 1440] [--height 1000] [--timeout-ms 45000] [--no-screenshot]");
   process.exit(0);
 }
 validateOptions(options);

@@ -20,6 +20,12 @@ npx playwright install chromium
 npm run extract:url -- --url https://example.com --out design-reference
 ```
 
+For Android App Builder visual references, use the Pixel 6 CSS viewport preset so the source screenshot aspect matches the emulator target:
+
+```bash
+npm run extract:url -- --url https://example.com --out design-reference --preset android-pixel6
+```
+
 This writes `DESIGN.raw.json`, `DESIGN.md`, `SKILL.md`, `source.png`, and a hash-bearing `run.json`.
 
 Recommended agent flow:
