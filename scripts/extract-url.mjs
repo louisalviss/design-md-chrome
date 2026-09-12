@@ -73,13 +73,23 @@ async function extract(options) {
 
     const outDir = path.resolve(options.outDir);
     await fs.mkdir(outDir, { recursive: true });
-    const files = {
+    const textFiles = {
       "DESIGN.raw.json": rawJson,
       "DESIGN.md": designMd,
       "SKILL.md": skillMd
     };
-    for (const [name, body] of Object.entries(files)) await fs.writeFile(path.join(outDir, name), body, "utf8");
-    if (options.screenshot) await page.screenshot({ path: path.join(outDir, "source.png"), fullPage: true });
+    for (const [name, body] of Object.entries(textFiles)) await fs.writeFile(path.join(outDir, name), body, "utf8");
+
+    const fileProofs = Object.fromEntries(
+      Object.entries(textFiles).map(([name, body]) => [name, { sha256: sha256(body), bytes: Buffer.byteLength(body) }])
+    );
+    if (options.screenshot) {
+      const viewportShot = await page.screenshot({ path: path.join(outDir, "source.png"), fullPage: false });
+      const fullShot = await page.screenshot({ path: path.join(outDir, "source-full.png"), fullPage: true });
+      fileProofs["source.png"] = { sha256: sha256(viewportShot), bytes: viewportShot.byteLength };
+      fileProofs["source-full.png"] = { sha256: sha256(fullShot), bytes: fullShot.byteLength };
+    }
+
     const summary = {
       ok: true,
       schema: "design-reference-run-v1",
@@ -87,8 +97,10 @@ async function extract(options) {
       resolved_url: page.url(),
       viewport: { width: options.width, height: options.height },
       sampled_elements: payload.sampledElements,
-      files: Object.fromEntries(Object.entries(files).map(([name, body]) => [name, { sha256: sha256(body), bytes: Buffer.byteLength(body) }])),
+      files: fileProofs,
       screenshot: options.screenshot ? "source.png" : null,
+      screenshot_mode: options.screenshot ? "viewport" : null,
+      full_screenshot: options.screenshot ? "source-full.png" : null,
       design_validation: designValidation,
       skill_validation: skillValidation
     };
