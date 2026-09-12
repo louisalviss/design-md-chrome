@@ -260,8 +260,9 @@
     });
 
     const relations = [];
+    const relationLimit = 1800;
     const addRelation = (relation) => {
-      if (relations.length < 900) relations.push(relation);
+      if (relations.length < relationLimit) relations.push(relation);
     };
 
     for (const el of elements) {
@@ -272,7 +273,7 @@
     }
 
     const pairLayouts = layouts.filter((row) => row?.key && row.documentRect?.width > 0 && row.documentRect?.height > 0);
-    for (let i = 0; i < pairLayouts.length && relations.length < 900; i += 1) {
+    for (let i = 0; i < pairLayouts.length && relations.length < relationLimit; i += 1) {
       const a = pairLayouts[i];
       const ar = a.documentRect;
       let nearest = null;
@@ -317,13 +318,47 @@
         zIndex: row.zIndex
       }));
 
-    const sections = [];
-    for (const el of document.querySelectorAll("header,nav,main,section,article,aside,footer")) {
-      if (!(el instanceof Element) || !isVisible(el) || sections.length >= 120) continue;
+    const sections = collectSectionBands(120);
+
+    return {
+      schema: "design-spatial-v1",
+      coordinateSpace: "document-css-px",
+      relations,
+      relationLimit,
+      relationsTruncated: relations.length >= relationLimit,
+      viewportAnchors,
+      sections
+    };
+  }
+
+  function collectSectionBands(limit) {
+    const docHeight = Math.max(document.documentElement?.scrollHeight || 0, document.body?.scrollHeight || 0);
+    const minWidth = Math.max(240, window.innerWidth * 0.58);
+    const minHeight = Math.max(160, window.innerHeight * 0.22);
+    const candidates = [];
+    const nodes = document.querySelectorAll("header,nav,main,section,article,aside,footer,[data-framer-name],[name],div[id],div[class]");
+    let inspected = 0;
+    for (const el of nodes) {
+      if (!(el instanceof Element) || inspected >= 4000) break;
+      inspected += 1;
+      if (!isVisible(el)) continue;
       const rect = el.getBoundingClientRect();
-      sections.push({
+      if (rect.width < minWidth || rect.height < minHeight) continue;
+      if (docHeight && rect.height > docHeight * 0.82) continue;
+      const tag = el.tagName.toLowerCase();
+      const semantic = ["header", "nav", "main", "section", "article", "aside", "footer"].includes(tag);
+      const name = normalizeWhitespace(el.getAttribute("data-framer-name") || el.getAttribute("name") || el.id || "");
+      let score = 0;
+      if (semantic) score += 4;
+      if (name) score += 3;
+      if (rect.width >= window.innerWidth * 0.9) score += 2;
+      if (rect.height >= window.innerHeight * 0.55) score += 2;
+      if (rect.height >= window.innerHeight * 1.2) score += 1;
+      candidates.push({
         key: stableElementKey(el),
-        tag: el.tagName.toLowerCase(),
+        tag,
+        labelHint: name.slice(0, 100),
+        score,
         documentRect: {
           x: round2(rect.x + (window.scrollX || 0)),
           y: round2(rect.y + (window.scrollY || 0)),
@@ -332,14 +367,18 @@
         }
       });
     }
-
-    return {
-      schema: "design-spatial-v1",
-      coordinateSpace: "document-css-px",
-      relations,
-      viewportAnchors,
-      sections
-    };
+    candidates.sort((a, b) => a.documentRect.y - b.documentRect.y || b.score - a.score || b.documentRect.height - a.documentRect.height);
+    const sections = [];
+    for (const candidate of candidates) {
+      if (sections.length >= limit) break;
+      const duplicate = sections.some((row) =>
+        Math.abs(row.documentRect.y - candidate.documentRect.y) <= 28 &&
+        Math.abs(row.documentRect.height - candidate.documentRect.height) <= 40
+      );
+      if (duplicate) continue;
+      sections.push(candidate);
+    }
+    return sections;
   }
 
   function collectMediaMap(limit) {
