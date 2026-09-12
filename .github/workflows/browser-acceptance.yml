@@ -23,7 +23,7 @@ jobs:
           server_pid=$!
           trap 'kill "$server_pid" >/dev/null 2>&1 || true' EXIT
           sleep 1
-          npm run extract:url -- --url http://127.0.0.1:4173/reference.html --out /tmp/design-reference --no-screenshot
+          npm run extract:url -- --url http://127.0.0.1:4173/reference.html --out /tmp/design-reference
           test -s /tmp/design-reference/DESIGN.raw.json
           test -s /tmp/design-reference/DESIGN.md
           test -s /tmp/design-reference/SKILL.md
